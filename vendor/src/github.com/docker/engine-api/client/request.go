@@ -12,6 +12,7 @@ import (
 
 	"github.com/docker/engine-api/client/transport/cancellable"
 	"github.com/docker/engine-api/types"
+	"github.com/docker/engine-api/types/versions"
 	"golang.org/x/net/context"
 )
 
@@ -105,6 +106,7 @@ func (cli *Client) sendClientRequest(ctx context.Context, method, path string, q
 	resp, err := cancellable.Do(ctx, cli.transport, req)
 	if err != nil {
 		if isTimeout(err) || strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "dial unix") {
+			// return serverResp, ErrConnectionFailed(err.Error())
 			return serverResp, ErrConnectionFailed
 		}
 
@@ -133,7 +135,8 @@ func (cli *Client) sendClientRequest(ctx context.Context, method, path string, q
 		}
 
 		var errorMessage string
-		if resp.Header.Get("Content-Type") == "application/json" {
+		if (cli.version == "" || versions.GreaterThan(cli.version, "1.23")) &&
+			resp.Header.Get("Content-Type") == "application/json" {
 			var errorResponse types.ErrorResponse
 			if err := json.Unmarshal(body, &errorResponse); err != nil {
 				return serverResp, fmt.Errorf("Error reading JSON: %v", err)
